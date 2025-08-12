@@ -1,0 +1,771 @@
+<html lang="no"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ansatt-oversikt: Sluttdatoer &amp; bemanning</title>
+  <style>
+    :root{
+      /* GPT‑vibe (lys) */
+      --bg: #f6f8ff;
+      --card: #ffffff;
+      --muted: #6b7280; /* slate-500 */
+      --text: #0f172a;  /* slate-900 */
+      --accent: #8b5cf6; /* violet-500 */
+      --accent-2: #06b6d4; /* cyan-500 */
+      --good: #10b981;  /* emerald */
+      --warn: #f59e0b;  /* amber */
+      --bad:  #ef4444;  /* red */
+      --chip: #f1f5ff;  /* soft indigo */
+      --shadow: 0 8px 24px rgba(2,6,23,.08);
+      --radius: 18px;
+      --monthW: 120px; /* må samsvare med JS (MONTH_W) */
+      --nameW: 260px;
+      --ring: 0 0 0 3px rgba(139,92,246,.18);
+    }
+    /* Espresso House (mørk) override */
+    body.theme-espresso{
+      --bg: #0f0d0c;        /* dyp espresso */
+      --card: #171412;      /* mørk brun */
+      --muted: #b8aea6;     /* lys cappuccino */
+      --text: #efe9e4;      /* melkeskum */
+      --accent: #2e5d50;    /* grønn */
+      --accent-2: #c27d4f;  /* karamell */
+      --good: #3fa475;
+      --warn: #d9a441;
+      --bad: #d96a5d;
+      --chip: #1e1a17;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --ring: 0 0 0 3px rgba(46,93,80,.22);
+    }
+
+    *{ box-sizing: border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0; font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text);
+      background:
+        radial-gradient(900px 500px at 0% -10%, rgba(139,92,246,.18), transparent 60%),
+        radial-gradient(700px 360px at 110% 0%, rgba(6,182,212,.16), transparent 60%),
+        var(--bg);
+      transition: background .25s ease, color .25s ease;
+    }
+    header{
+      position: sticky; top:0; z-index: 10;
+      background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.6) 60%, transparent);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(2,6,23,.06);
+    }
+    body.theme-espresso header{ background: linear-gradient(180deg, rgba(15,13,12,.92), rgba(15,13,12,.65) 60%, transparent); border-bottom-color: rgba(255,255,255,.06); }
+
+    .container{ max-width: 1100px; margin: 0 auto; padding: 18px 18px 28px; }
+    .title{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
+    .title h1{ margin:0; font-size: clamp(22px, 3vw, 32px); letter-spacing:.2px; }
+    .subtitle{ color:var(--muted); margin-top:6px; font-size: 14px; }
+    .bar{ display:grid; grid-template-columns: 1fr; gap:18px; margin-top:16px; }
+    @media (min-width: 900px){ .bar{ grid-template-columns: 1.2fr 1fr; } }
+
+    .card{ background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid rgba(2,6,23,.06); }
+    body.theme-espresso .card{ border-color: rgba(255,255,255,.06); }
+    .card.pad{ padding:18px; }
+
+    .grid{ display:grid; gap:16px; }
+    @media (min-width: 900px){ .grid.cols-3{ grid-template-columns: repeat(3,1fr); } }
+
+    .kpi{ display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius: 14px; background: linear-gradient(180deg, #ffffff, #f7f7ff); border:1px solid rgba(2,6,23,.06); }
+    body.theme-espresso .kpi{ background: var(--chip); border-color: #2a241f; }
+    .kpi .n{ font-weight: 800; font-size: 22px; }
+    .kpi .lbl{ color:var(--muted); font-size: 13px; }
+
+    .toolbar{ display:flex; flex-wrap: wrap; gap:10px; align-items:center; }
+
+    input, select, button, textarea{
+      background:#fff; color:var(--text); border:1px solid rgba(2,6,23,.1); border-radius:12px; padding:10px 12px; outline:none;
+      transition: border .15s ease, transform .04s ease, background .25s ease; font: inherit;
+    }
+    input:focus, select:focus, textarea:focus{ border-color: var(--accent); box-shadow: var(--ring); }
+    body.theme-espresso input, body.theme-espresso select, body.theme-espresso textarea{ background:#14100e; border-color:#2a241f; color:var(--text); }
+
+    button{ cursor:pointer; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color:#fff; border:none; box-shadow: 0 10px 22px rgba(17,24,39,.12); }
+    button.secondary{ background: #f3f4f6; color: #111827; border:1px solid rgba(2,6,23,.12); box-shadow:none; }
+    body.theme-espresso button.secondary{ background: #1f1a16; color: var(--text); border-color:#2a241f; }
+    button.ghost{ background: transparent; border:1px dashed rgba(2,6,23,.24); color: var(--text); }
+    .danger{ background: linear-gradient(180deg, #ef4444, #f59e0b); color:#fff; box-shadow: 0 8px 18px rgba(239,68,68,.25); }
+
+    table{ width:100%; border-collapse: collapse; }
+    th, td{ padding:10px 10px; border-bottom:1px dashed rgba(2,6,23,.08); vertical-align: middle; }
+    body.theme-espresso th, body.theme-espresso td{ border-bottom-color: rgba(255,255,255,.06); }
+    th{ text-align:left; font-size: 13px; color:var(--muted); font-weight:700; }
+    tr:hover td{ background: rgba(139,92,246,.06); }
+    body.theme-espresso tr:hover td{ background: rgba(255,255,255,.03); }
+
+    .status{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:.2px; }
+    .status.active{ background:#ecfeff; color:#155e75; border:1px solid #bae6fd; }
+    .status.leaving{ background:#f5f3ff; color:#5b21b6; border:1px solid #ddd6fe; }
+    .status.soon{ background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; }
+    .status.left{ background:#f1f5f9; color:#334155; border:1px solid #e2e8f0; }
+    body.theme-espresso .status.active{ background:#1b2c28; color:#bfe3d7; border:1px solid #2e5d50; }
+    body.theme-espresso .status.leaving{ background:#2e251f; color:#f0d0b9; border:1px solid #4b3b31; }
+    body.theme-espresso .status.soon{ background:#3a2a17; color:#ffe3b3; border:1px solid #6f5326; }
+    body.theme-espresso .status.left{ background:#231f1c; color:#c7bdb5; border:1px solid #3a322b; }
+
+    .progress{ height:8px; background:#e5e7eb; border-radius:999px; overflow:hidden; }
+    body.theme-espresso .progress{ background:#1b1a18; }
+    .progress > span{ display:block; height:100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width:0; }
+
+    .row-actions{ display:flex; gap:6px; }
+
+    .section-title{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .section-title h3{ margin:0; font-size: 18px; }
+
+    .muted{ color:var(--muted); }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .hl{ color: #312e81; }
+
+    .footnote{ color: var(--muted); font-size:12px; margin-top:12px; }
+
+    .split{ display:grid; gap:14px; }
+    @media (min-width: 720px){ .split{ grid-template-columns: 1fr 1fr; } }
+
+    .icon{ width:18px; height:18px; display:inline-block; }
+
+    /* Timeline */
+    .timeline .tl-scroll{ overflow-x: auto; }
+    .timeline .tl-grid{ display:grid; grid-auto-rows: 42px; }
+    .timeline .tl-cell{ padding:8px 10px; border-bottom:1px dashed rgba(2,6,23,.08); }
+    body.theme-espresso .timeline .tl-cell{ border-bottom-color: rgba(255,255,255,.06); }
+    .timeline .tl-name{ position: sticky; left:0; background: var(--card); z-index: 2; display:flex; flex-direction:column; justify-content:center; gap:2px; }
+    .timeline .role{ font-size:11px; color:var(--muted); }
+    .timeline .tl-month{ text-align:center; color:#64748b; font-size:12px; }
+    body.theme-espresso .timeline .tl-month{ color:var(--muted); }
+    .timeline .row-area{ position:relative; height:26px; }
+    .timeline .bar{ position:absolute; top:5px; height:16px; border-radius:999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); opacity:.95; }
+    .timeline .bar.left{ background: linear-gradient(90deg, #cbd5e1, #94a3b8); opacity:.9; }
+    body.theme-espresso .timeline .bar.left{ background: linear-gradient(90deg, #8d7e71, #5b5149); opacity:.85; }
+    .timeline .bar.unknown{ opacity:.55; mix-blend-mode: multiply; }
+    .timeline .marker{ position:absolute; top:3px; width:2px; height:20px; background:#d946ef; }
+    .timeline .badge{ position:absolute; top:-10px; transform: translateX(-50%); font-size:11px; background:#f5f3ff; color:#4338ca; padding:2px 6px; border-radius:999px; border:1px solid #ddd6fe; white-space:nowrap; }
+    body.theme-espresso .timeline .badge{ background:#3a2a17; color:#ffe3b3; border-color:#6f5326; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="title">
+        <div style="display:flex; gap:14px; align-items:center;">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 7h10v10H7z" stroke="#8b5cf6" stroke-width="1.5"></path>
+            <path d="M3 10h4m10 0h4M3 14h4m10 0h4" stroke="#06b6d4" stroke-width="1.2"></path>
+          </svg>
+          <div>
+            <h1>Sluttdatoer &amp; bemanning</h1>
+            <div class="subtitle">Én HTML‑fil uten server. Lagrer lokalt, kan eksporteres til JSON eller oppdatert HTML for GitHub/Netlify.</div>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button class="secondary" id="themeBtn" title="Bytt mellom GPT‑vibe (lys) og Espresso (mørk)">Tema: GPT‑vibe</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="bar">
+      <div class="card pad">
+        <div class="section-title"><h3>Nøkkeltall</h3><span class="muted" id="lastSaved"></span></div>
+        <div class="grid cols-3">
+          <div class="kpi"><div class="n" id="kpiActive">0</div><div class="lbl">Aktive nå</div></div>
+          <div class="kpi"><div class="n" id="kpiLeaving90">0</div><div class="lbl">Slutter innen 3 mnd</div></div>
+          <div class="kpi"><div class="n" id="kpiLeft">0</div><div class="lbl">Allerede sluttet</div></div>
+        </div>
+        <div class="footnote">Terskel for «Snart» = 3 måneder fra i dag.</div>
+      </div>
+      <div class="card pad">
+        <div class="section-title"><h3>Legg til person</h3></div>
+        <div class="split">
+          <div class="grid">
+            <label>Navn<br><input id="newName" placeholder="Fornavn Etternavn"></label>
+            <label>Rolle<br>
+              <input id="newRole" list="roleList" placeholder="F.eks. Barista">
+              <datalist id="roleList">
+                <option>CSM</option>
+                <option>Shift leader</option>
+                <option>Barista</option>
+                <option>Trainee</option>
+                <option>Seasonal</option>
+              </datalist>
+            </label>
+            <label>Status<br>
+              <select id="newStatus">
+                <option value="active">Ingen planer (aktiv)</option>
+                <option value="leaving">Planlegger å slutte</option>
+                <option value="left">Allerede sluttet</option>
+              </select>
+            </label>
+            <label>Dato (hvis kjent)<br><input id="newDate" type="date"></label>
+          </div>
+          <div class="grid">
+            <label>Notat (valgfritt)<br><textarea id="newNote" rows="4" placeholder="F.eks. årsak, overlevering, osv."></textarea></label>
+            <div class="toolbar">
+              <button id="addBtn">Legg til</button>
+              <button class="secondary" id="resetBtn" title="Tilbakestill til startdata">Tilbakestill</button>
+              <button class="secondary" id="exportJsonBtn">Eksporter JSON</button>
+              <label class="secondary" style="display:inline-flex; gap:8px; align-items:center; padding:10px 12px; border-radius:12px; border:1px solid rgba(2,6,23,.12); cursor:pointer;">
+                Importer JSON
+                <input type="file" id="importJsonInput" accept="application/json" style="display:none;">
+              </label>
+              <button class="ghost" id="downloadHtmlBtn" title="Laster ned denne siden med dagens data innebygget">Last ned oppdatert HTML</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card pad" style="margin-top:18px;">
+      <div class="section-title">
+        <h3>Folk &amp; status</h3>
+        <div class="toolbar">
+          <input id="search" placeholder="Søk navn…">
+          <select id="filter">
+            <option value="all">Alle</option>
+            <option value="active">Aktive (ingen planer)</option>
+            <option value="leaving">Planlegger å slutte</option>
+            <option value="left">Allerede sluttet</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow:auto;">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Navn</th>
+              <th>Rolle</th>
+              <th>Status</th>
+              <th>Dato</th>
+              <th>Gjenstår</th>
+              <th style="min-width:160px;">Fremdrift</th>
+              <th>Notat</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card pad timeline" style="margin-top:18px;">
+      <div class="section-title">
+        <h3>Tidslinje (månedsvis)</h3>
+        <div class="muted" id="tlRangeNote"></div>
+      </div>
+      <div class="tl-scroll">
+        <div id="tlGrid" class="tl-grid"></div>
+      </div>
+      <div class="footnote">Horisontal scroll. Hver person har en sammenhengende strek fra i dag til sluttdato (eller til periodens slutt om dato er ukjent/ingen planer). En tenkt lodrett strek gir antall på jobb.</div>
+    </section>
+
+  </main>
+
+  <!--DATA_START-->
+  <script id="seed-data" type="application/json">
+  {
+  "version": 2,
+  "people": [
+    {
+      "id": "p-mary",
+      "name": "Mary Christiansen",
+      "role": "Shift leader",
+      "status": "active",
+      "date": null,
+      "note": "Ingen planer."
+    },
+    {
+      "id": "p-elias",
+      "name": "Elias Lindhaugen Falmark",
+      "role": "Shift leader",
+      "status": "active",
+      "date": "2026-08-11",
+      "note": "Ca. 12 mnd fra nå."
+    },
+    {
+      "id": "p-johannes",
+      "name": "Johannes Leon Lund Evensen",
+      "role": "Barista",
+      "status": "leaving",
+      "date": "2025-12-31",
+      "note": "Planlagt 31. desember 2025."
+    },
+    {
+      "id": "p-synnove",
+      "name": "Synnøve Gilstedt Hundven",
+      "role": "Barista",
+      "status": "leaving",
+      "date": "2025-12-26",
+      "note": "Planlagt 26. desember 2025."
+    },
+    {
+      "id": "p-sander",
+      "name": "Sander Elias Magnusson",
+      "role": "Seasonal",
+      "status": "leaving",
+      "date": "2025-08-30",
+      "note": "Ferdig 30. august 2025."
+    },
+    {
+      "id": "p-julie",
+      "name": "Julie Gunkielsrud Nielsen",
+      "role": "Trainee",
+      "status": "active",
+      "date": null,
+      "note": "Ingen planer."
+    },
+    {
+      "id": "p-emma",
+      "name": "Emma Magnusson",
+      "role": "",
+      "status": "left",
+      "date": null,
+      "note": "Har sluttet."
+    },
+    {
+      "id": "p-sofie",
+      "name": "Sofie Sand",
+      "role": "",
+      "status": "left",
+      "date": null,
+      "note": "Har sluttet."
+    },
+    {
+      "id": "p-oleh",
+      "name": "Oleh Kurasov",
+      "role": "Barista",
+      "status": "leaving",
+      "date": "2026-01-31",
+      "note": "Sikter på januar 2026."
+    },
+    {
+      "id": "p-markus",
+      "name": "Markus Nicolai Engseth Feddersen",
+      "role": "CSM",
+      "status": "active",
+      "date": null,
+      "note": ""
+    }
+  ]
+}
+  </script>
+  <!--DATA_END-->
+
+  <script>
+    // ------------------------------
+    // Utilities
+    // ------------------------------
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+    const fmt = new Intl.DateTimeFormat('no-NO', { dateStyle:'medium' });
+    const fmtMonth = new Intl.DateTimeFormat('no-NO', { month: 'short', year: 'numeric' });
+    const today = () => new Date(new Date().toDateString()); // strip time
+    const monthStart = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+    const toDate = (s) => s ? new Date(s + (s.length === 10 ? 'T00:00:00' : '')) : null;
+    const daysBetween = (a,b) => Math.round((b - a) / 86400000);
+
+    const MONTH_W = 120; // px, må matches CSS --monthW
+
+    // THEME
+    const THEMEKEY = 'staff-exit-tracker.theme';
+    function applyTheme(name){
+      document.body.classList.toggle('theme-espresso', name === 'espresso');
+      const btn = $('#themeBtn');
+      if(btn) btn.textContent = 'Tema: ' + (name === 'espresso' ? 'Espresso' : 'GPT‑vibe');
+      try{ localStorage.setItem(THEMEKEY, name); }catch(e){}
+    }
+
+    function uid(){ return 'p-' + Math.random().toString(36).slice(2,8); }
+
+    function addMonths(d, n){
+      const x = new Date(d.getTime());
+      const day = x.getDate();
+      x.setDate(1);
+      x.setMonth(x.getMonth()+n);
+      const last = new Date(x.getFullYear(), x.getMonth()+1, 0).getDate();
+      x.setDate(Math.min(day, last));
+      return x;
+    }
+
+    function monthsDiff(a, b){ // a,b are month starts
+      return (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+    }
+
+    function loadSeed(){
+      try { return JSON.parse(document.getElementById('seed-data').textContent); }
+      catch(e){ console.error('Seed parse failed', e); return {version:2, people:[]}; }
+    }
+
+    const STORAGE_KEY = 'staff-exit-tracker.v2';
+
+    function loadData(){
+      const local = localStorage.getItem(STORAGE_KEY);
+      if(local){ return JSON.parse(local); }
+      return loadSeed();
+    }
+
+    function saveData(data){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      $('#lastSaved').textContent = 'Sist lagret lokalt: ' + new Date().toLocaleString('no-NO');
+    }
+
+    function resetToSeed(){
+      const seed = loadSeed();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+      return seed;
+    }
+
+    // ------------------------------
+    // Rendering
+    // ------------------------------
+    let state = loadData();
+
+    function classify(person){
+      if(person.status === 'left') return 'left';
+      if(person.status === 'active') return 'active';
+      if(person.status === 'leaving'){
+        if(!person.date) return 'leaving';
+        const d = toDate(person.date);
+        const soonCutoff = addMonths(today(), 3); // 3 mnd terskel
+        return d <= soonCutoff ? 'soon' : 'leaving';
+      }
+      return 'active';
+    }
+
+    function renderKPIs(){
+      const soonCutoff = addMonths(today(), 3);
+      const active = state.people.filter(p => p.status !== 'left');
+      const left = state.people.filter(p => p.status === 'left');
+      const soon = state.people.filter(p => p.status === 'leaving' && p.date && toDate(p.date) <= soonCutoff && toDate(p.date) >= today());
+      $('#kpiActive').textContent = active.length;
+      $('#kpiLeaving90').textContent = soon.length;
+      $('#kpiLeft').textContent = left.length;
+    }
+
+    function humanEta(person){
+      if(person.status === 'left'){
+        return person.date ? `Sluttet ${fmt.format(toDate(person.date))}` : 'Sluttet';
+      }
+      if(person.status === 'leaving'){
+        if(!person.date) return 'Dato ukjent';
+        const d = toDate(person.date);
+        const diff = daysBetween(today(), d);
+        if(diff < 0) return `Dato passert (${fmt.format(d)})`;
+        if(diff === 0) return 'I dag';
+        if(diff < 31) return `${diff} dager`;
+        const months = Math.round(diff / 30);
+        return months + (months === 1 ? ' mnd' : ' mnd');
+      }
+      return '—';
+    }
+
+    function progressRatio(person){
+      // 0..1 based on 0..18 months window
+      if(person.status !== 'leaving' || !person.date) return 0;
+      const d = toDate(person.date);
+      const totalDays = 18 * 30; // approx
+      const leftDays = Math.max(0, Math.min(totalDays, daysBetween(today(), d)));
+      return Math.min(1, leftDays / totalDays);
+    }
+
+    function escAttr(v){ return String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
+    // Beregn bar-område for en person (fra denne måneden til exit / horisont)
+    function computeBarRange(person, start, monthsLen){
+      if(person.status === 'left') return null; // ikke med i headcount framover
+      let endIdx = monthsLen - 1; // default: strek helt til slutten av horisonten
+      if(person.status === 'leaving' && person.date){
+        const d = monthStart(toDate(person.date));
+        endIdx = Math.max(0, Math.min(monthsLen-1, monthsDiff(start, d)));
+      }
+      return { startIdx: 0, endIdx };
+    }
+
+    function renderTable(){
+      const q = $('#search').value.trim().toLowerCase();
+      const f = $('#filter').value;
+      const tb = $('#tbl tbody');
+      tb.innerHTML = '';
+
+      const sorted = [...state.people].sort((a,b)=>{
+        const ad = a.date ? new Date(a.date) : new Date(8640000000000000);
+        const bd = b.date ? new Date(b.date) : new Date(8640000000000000);
+        const as = a.status === 'left' ? 2 : (a.status === 'leaving' ? 0 : 1);
+        const bs = b.status === 'left' ? 2 : (b.status === 'leaving' ? 0 : 1);
+        if(as !== bs) return as - bs; // leaving first, then active, then left
+        return ad - bd;
+      });
+
+      for(const p of sorted){
+        if(q && !p.name.toLowerCase().includes(q)) continue;
+        if(f !== 'all' && p.status !== f) continue;
+        const tr = document.createElement('tr');
+
+        const stClass = classify(p);
+        const badge = `<span class="status ${stClass}">`+
+          (p.status==='active'? 'Aktiv' : p.status==='leaving'? 'Planlegger' : 'Sluttet') +
+        `</span>`;
+
+        const dateCell = `<input type="date" value="${p.date ? p.date : ''}" data-id="${p.id}" data-field="date" style="min-width:140px;" />`;
+        const statusSel = `<select data-id="${p.id}" data-field="status">
+            <option value="active" ${p.status==='active'?'selected':''}>Aktiv</option>
+            <option value="leaving" ${p.status==='leaving'?'selected':''}>Planlegger</option>
+            <option value="left" ${p.status==='left'?'selected':''}>Sluttet</option>
+          </select>`;
+        const noteCell = `<input type="text" value="${escAttr(p.note)}" data-id="${p.id}" data-field="note" placeholder="Notat" />`;
+        const roleCell = `<input type="text" value="${escAttr(p.role)}" data-id="${p.id}" data-field="role" list="roleList" placeholder="Rolle" style="min-width:120px;" />`;
+
+        tr.innerHTML = `
+          <td><span class="mono hl">${p.name}</span></td>
+          <td>${roleCell}</td>
+          <td>${badge}<div style="margin-top:6px;">${statusSel}</div></td>
+          <td>${dateCell}</td>
+          <td class="muted">${humanEta(p)}</td>
+          <td>
+            <div class="progress"><span style="width:${(progressRatio(p)*100).toFixed(0)}%"></span></div>
+          </td>
+          <td>${noteCell}</td>
+          <td class="row-actions">
+            <button class="secondary" data-act="del" data-id="${p.id}">Slett</button>
+          </td>`;
+        tb.appendChild(tr);
+      }
+
+      // Wire inputs
+      tb.querySelectorAll('select, input').forEach(el=>{
+        if(el.dataset.field){ el.addEventListener('change', onInlineEdit); }
+      });
+      tb.querySelectorAll('button[data-act="del"]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const id = btn.dataset.id;
+          state.people = state.people.filter(p=>p.id !== id);
+          saveData(state); renderAll();
+        });
+      });
+    }
+
+    // Timeline generation
+    function getTimelineRange(){
+      const t0 = monthStart(today());
+      let latest = t0;
+      for(const p of state.people){ if(p.date){ const d = monthStart(toDate(p.date)); if(d > latest) latest = d; } }
+      const end = addMonths(latest, 4); // vis litt margin
+      const start = t0; // fra nåværende måned
+      const months = [];
+      let cur = new Date(start.getTime());
+      while(cur <= end){ months.push(new Date(cur.getTime())); cur = addMonths(cur, 1); }
+      return {start, end, months};
+    }
+
+    function renderTimeline(){
+      const {start, months} = getTimelineRange();
+      const grid = $('#tlGrid');
+      grid.innerHTML = '';
+      grid.style.gridTemplateColumns = `var(--nameW) repeat(${months.length}, var(--monthW))`;
+      $('#tlRangeNote').textContent = `${fmtMonth.format(months[0])} – ${fmtMonth.format(months[months.length-1])}`;
+
+      // Header row
+      const hName = document.createElement('div');
+      hName.className = 'tl-cell tl-name'; hName.innerHTML = '<span class="muted">Navn</span>';
+      grid.appendChild(hName);
+      for(const m of months){
+        const c = document.createElement('div');
+        c.className = 'tl-cell tl-month';
+        c.textContent = fmtMonth.format(m);
+        grid.appendChild(c);
+      }
+
+      // Rows
+      const peopleSorted = [...state.people].sort((a,b)=>{
+        const ad = a.date ? new Date(a.date) : new Date(8640000000000000);
+        const bd = b.date ? new Date(b.date) : new Date(8640000000000000);
+        const as = a.status === 'left' ? 2 : (a.status === 'leaving' ? 0 : 1);
+        const bs = b.status === 'left' ? 2 : (b.status === 'leaving' ? 0 : 1);
+        if(as !== bs) return as - bs; return ad - bd;
+      });
+
+      for(const p of peopleSorted){
+        const nameCell = document.createElement('div');
+        nameCell.className = 'tl-cell tl-name';
+        nameCell.innerHTML = `<span class="mono hl">${p.name}</span><span class="role">${p.role||'—'}</span>`;
+        grid.appendChild(nameCell);
+
+        const areaCell = document.createElement('div');
+        areaCell.className = 'tl-cell';
+        areaCell.style.gridColumn = `2 / span ${months.length}`;
+        const area = document.createElement('div');
+        area.className = 'row-area';
+        area.style.width = `calc(${months.length} * var(--monthW))`;
+
+        const range = computeBarRange(p, start, months.length);
+        if(range){
+          const leftPx = range.startIdx * MONTH_W + 4;
+          const widthPx = Math.max(16, (range.endIdx - range.startIdx + 1) * MONTH_W - 8);
+          const bar = document.createElement('div');
+          bar.className = 'bar' + (p.status==='leaving' && !p.date ? ' unknown' : '');
+          bar.style.left = leftPx + 'px';
+          bar.style.width = widthPx + 'px';
+          area.appendChild(bar);
+
+          // Marker og badge ved sluttdato for de som har den
+          if(p.status === 'leaving' && p.date){
+            const endCenter = range.endIdx * MONTH_W + Math.floor(MONTH_W/2) + 2;
+            const mark = document.createElement('div'); mark.className = 'marker'; mark.style.left = endCenter + 'px'; area.appendChild(mark);
+            const badge = document.createElement('div'); badge.className = 'badge'; badge.style.left = endCenter + 'px'; badge.textContent = 'Slutter'; area.appendChild(badge);
+          }
+        } else if(p.status === 'left' && p.date){
+          // Valgfritt: vis en liten markør hvis sluttet i denne horisonten (historisk markering)
+          const d = monthStart(toDate(p.date));
+          const idx = monthsDiff(start, d);
+          if(idx >= 0 && idx < months.length){
+            const center = idx * MONTH_W + Math.floor(MONTH_W/2) + 2;
+            const mark = document.createElement('div'); mark.className = 'marker'; mark.style.left = center + 'px'; area.appendChild(mark);
+            const badge = document.createElement('div'); badge.className = 'badge'; badge.style.left = center + 'px'; badge.textContent = 'Sluttet'; area.appendChild(badge);
+          }
+        } else if(p.status === 'leaving' && !p.date){
+          const txt = document.createElement('div'); txt.className = 'role'; txt.textContent = 'Dato ukjent'; txt.style.position = 'absolute'; txt.style.left = '8px'; txt.style.top = '6px'; area.appendChild(txt);
+        }
+
+        areaCell.appendChild(area);
+        grid.appendChild(areaCell);
+      }
+    }
+
+    function onInlineEdit(e){
+      const id = e.target.dataset.id;
+      const field = e.target.dataset.field;
+      const p = state.people.find(x=>x.id===id);
+      if(!p) return;
+      let val = e.target.value;
+      if(field==='status'){
+        p.status = val;
+      } else if(field==='date'){
+        p.date = val || null;
+      } else if(field==='note'){
+        p.note = val;
+      } else if(field==='role'){
+        p.role = val;
+      }
+      saveData(state); renderAll();
+    }
+
+    // ------------------------------
+    // Actions
+    // ------------------------------
+    $('#addBtn').addEventListener('click', ()=>{
+      const name = $('#newName').value.trim();
+      if(!name){ alert('Skriv inn et navn.'); return; }
+      const status = $('#newStatus').value;
+      const date = $('#newDate').value || null;
+      const note = $('#newNote').value.trim();
+      const role = $('#newRole').value.trim();
+      state.people.push({ id: uid(), name, role, status, date, note});
+      $('#newName').value=''; $('#newDate').value=''; $('#newNote').value=''; $('#newRole').value='';
+      saveData(state); renderAll();
+    });
+
+    $('#resetBtn').addEventListener('click', ()=>{
+      if(!confirm('Tilbakestille til startdata? Lokale endringer på denne enheten blir borte.')) return;
+      state = resetToSeed();
+      renderAll();
+    });
+
+    $('#exportJsonBtn').addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ansatt-sluttdatoer.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    $('#importJsonInput').addEventListener('change', (ev)=>{
+      const file = ev.target.files[0];
+      if(!file) return;
+      const r = new FileReader();
+      r.onload = ()=>{
+        try{ const data = JSON.parse(r.result); if(!data.people) throw new Error('Ugyldig fil'); state = data; saveData(state); renderAll(); }
+        catch(e){ alert('Kunne ikke lese filen: ' + e.message); }
+      };
+      r.readAsText(file);
+      ev.target.value = '';
+    });
+
+    // Export updated self-contained HTML (re-embeds current JSON into this file)
+    const ORIGINAL_HTML = document.documentElement.outerHTML;
+    $('#downloadHtmlBtn').addEventListener('click', ()=>{
+      const json = JSON.stringify(state, null, 2);
+      const startMarker = '<script id="seed-data" type="application/json">';
+      const endMarker = '</' + 'script>'; // aldri bruk literal
+      const startPos = ORIGINAL_HTML.indexOf(startMarker);
+      if(startPos === -1){ alert('Fant ikke data-blokken i HTML.'); return; }
+      const afterStart = startPos + startMarker.length;
+      const endPos = ORIGINAL_HTML.indexOf(endMarker, afterStart);
+      if(endPos === -1){ alert('Fant ikke slutten av data-blokken.'); return; }
+      const updated = ORIGINAL_HTML.slice(0, afterStart) + `\n  ${json}\n  ` + ORIGINAL_HTML.slice(endPos);
+      const blob = new Blob([updated], {type:'text/html'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'staff-exit-tracker.html';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    $('#search').addEventListener('input', renderTable);
+    $('#filter').addEventListener('change', renderTable);
+
+    // Theme toggle
+    $('#themeBtn').addEventListener('click', ()=>{
+      const cur = localStorage.getItem(THEMEKEY) || 'gpt';
+      const next = cur === 'gpt' ? 'espresso' : 'gpt';
+      applyTheme(next);
+    });
+
+    function renderAll(){
+      renderKPIs();
+      renderTable();
+      renderTimeline();
+    }
+
+    // ------------------------------
+    // Basic self-tests (for debugging)
+    // ------------------------------
+    (function selfTests(){
+      try{
+        const parsed = loadSeed();
+        console.assert(Array.isArray(parsed.people), 'Seed data should have people array');
+        const r = getTimelineRange();
+        console.assert(r.months.length > 0, 'Timeline months should render');
+        // Export markers detection (without literal end tag)
+        const startMarker = '<script id="seed-data" type="application/json">';
+        const endMarker = '</' + 'script>';
+        const sPos = ORIGINAL_HTML.indexOf(startMarker);
+        const ePos = ORIGINAL_HTML.indexOf(endMarker, sPos+startMarker.length);
+        console.assert(sPos !== -1 && ePos !== -1, 'Export markers should be found');
+
+        // Testcases for computeBarRange
+        const start = monthStart(today());
+        const monthsLen = 6;
+        const pActive = {status:'active'};
+        const pLeaving = {status:'leaving', date: new Date(start.getFullYear(), start.getMonth()+3, 1).toISOString().slice(0,10)};
+        const pLeft = {status:'left', date: new Date(start.getFullYear(), start.getMonth()-2, 1).toISOString().slice(0,10)};
+        const r1 = computeBarRange(pActive, start, monthsLen);
+        console.assert(r1 && r1.endIdx === monthsLen-1, 'Active should run to horizon');
+        const r2 = computeBarRange(pLeaving, start, monthsLen);
+        console.assert(r2 && r2.endIdx === 3, 'Leaving in 3 months should end at idx 3');
+        const r3 = computeBarRange(pLeft, start, monthsLen);
+        console.assert(r3 === null, 'Left should not produce a future bar');
+      }catch(e){ console.warn('Self-tests failed', e); }
+    })();
+
+    // Initial render
+    const savedTheme = localStorage.getItem(THEMEKEY) || 'gpt';
+    applyTheme(savedTheme);
+    renderAll();
+    $('#lastSaved').textContent = 'Klar';
+  </script></body></html>
